@@ -1,16 +1,71 @@
-/* eslint-disable no-unused-vars */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
 const CourseForm = () => {
   const [courseName, setCourseName] = useState('');
   const [courseTitle, setCourseTitle] = useState('');
   const [courseRoom, setCourseRoom] = useState('');
   const [courseId, setCourseId] = useState('');
+  const [courses, setCourses] = useState([]);
+  const [selectedCourse, setSelectedCourse] = useState(null);
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    fetchAllCourses();
+  }, []);
+
+  const fetchAllCourses = async () => {
+    try {
+      const response = await axios.get('http://localhost:8081/api/course/all');
+      setCourses(response.data);
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+    }
+  };
+
+  const fetchCourseById = async (id) => {
+    try {
+      const response = await axios.get(`http://localhost:8081/api/course/coursebyid/${id}`);
+      setSelectedCourse(response.data);
+      setCourseName(response.data.course_name);
+      setCourseTitle(response.data.course_title);
+      setCourseRoom(response.data.course_room);
+      setCourseId(response.data.course_id);
+    } catch (error) {
+      console.error('Error fetching course by ID:', error);
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Handle form submission here
-    console.log({ courseName, courseTitle, courseRoom, courseId });
+    try {
+      const course = {
+        course_name: courseName,
+        course_title: courseTitle,
+        course_room: courseRoom,
+      };
+      if (courseId) {
+        await axios.put(`http://localhost:8081/api/course/update/${courseId}`, course);
+      } else {
+        const response = await axios.post('http://localhost:8081/api/course/addcourse', course);
+        // Assuming response.data contains the added course details
+        setCourses([...courses, response.data]); // Add new course to the list
+        setCourseName('');
+        setCourseTitle('');
+        setCourseRoom('');
+      }
+      fetchAllCourses(); // Refresh the courses list after update or add
+    } catch (error) {
+      console.error('Error submitting course:', error);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await axios.delete(`http://localhost:8081/api/course/delete/${id}`);
+      fetchAllCourses();
+    } catch (error) {
+      console.error('Error deleting course:', error);
+    }
   };
 
   return (
@@ -75,7 +130,6 @@ const CourseForm = () => {
               placeholder="Enter course ID"
               value={courseId}
               onChange={(e) => setCourseId(e.target.value)}
-              required
             />
           </div>
           <div className="flex justify-end">
@@ -83,10 +137,33 @@ const CourseForm = () => {
               type="submit"
               className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
             >
-              Submit
+              {courseId ? 'Update' : 'Add'}
             </button>
           </div>
         </form>
+      </div>
+
+      <div className="max-w-md mx-auto mt-6 bg-white shadow-lg rounded-lg p-6">
+        <h3 className="text-xl font-bold mb-4">Courses</h3>
+        <ul>
+          {courses.map(course => (
+            <li key={course.course_id} className="mb-2">
+              {course.course_name} - {course.course_title}
+              <button
+                className="ml-2 bg-yellow-500 text-white px-2 py-1 rounded"
+                onClick={() => fetchCourseById(course.course_id)}
+              >
+                Edit
+              </button>
+              <button
+                className="ml-2 bg-red-500 text-white px-2 py-1 rounded"
+                onClick={() => handleDelete(course.course_id)}
+              >
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );
